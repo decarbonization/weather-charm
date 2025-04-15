@@ -1,4 +1,5 @@
 from adafruit_bitmap_font import bitmap_font
+from adafruit_datetime import datetime, timedelta
 from adafruit_display_text import label
 
 import adafruit_max1704x
@@ -105,10 +106,12 @@ class Forecast:
     humidity: str
     uvIndex: str
     windSpeed: str
+    hours: list[tuple[datetime, str, str, str]]
 
     def __init__(self, lat: str, lng: str):
+        hourlyEnd = (datetime.now() + timedelta(hours=6)).isoformat()
         weather_response = requests.get(
-            f"https://weatherkit.apple.com/api/v1/weather/en-US/{lat}/{lng}?dataSets=currentWeather&timezone={tz}",
+            f"https://weatherkit.apple.com/api/v1/weather/en-US/{lat}/{lng}?dataSets=currentWeather%2CforecastHourly&hourlyEnd={hourlyEnd}&timezone={tz}",
             headers={"Authorization": f"Bearer {os.getenv('WEATHER_TOKEN')}"}
         )
         weather = weather_response.json()
@@ -119,44 +122,68 @@ class Forecast:
         self.humidity = percent(current_weather.get('humidity'))
         self.uvIndex = f"{current_weather.get('uvIndex', 0)}UV"
         self.windSpeed = speed(current_weather.get('windSpeed'))
+        forecast_hourly = weather.get('forecastHourly', {})
+        self.hours = [
+            (
+                datetime.fromisoformat(hour.get('forecastStart')),
+                condition(hour.get('conditionCode')),
+                temp(hour.get('temperature')),
+                percent(hour.get('precipitationChance'))
+            )
+            for hour in forecast_hourly.get('hours', [])
+        ]
 
 forecast = Forecast('42.478', '-70.925')
 
 def current_weather():
-    group = displayio.Group()
+    scene = displayio.Group()
 
     temp_label = label.Label(FONT_REGULAR, text=forecast.temp, color=COLOR_FG)
     temp_label.scale = 2
     temp_label.x = display.width // 2 - temp_label.bounding_box[2]
     temp_label.y = display.height // 2
-    group.append(temp_label)
+    scene.append(temp_label)
 
     feels_like_label = label.Label(FONT_REGULAR, text=f"Feels like {forecast.feelsLike}", color=COLOR_FG)
     feels_like_label.x = display.width // 2 - feels_like_label.bounding_box[2] // 2
     feels_like_label.y = (display.height // 2 + temp_label.bounding_box[3]) + 5
-    group.append(feels_like_label)
+    scene.append(feels_like_label)
 
     condition_label = label.Label(FONT_SMALL, text=forecast.condition, color=COLOR_FG)
     condition_label.x = display.width // 2 - condition_label.bounding_box[2] // 2
     condition_label.y = (display.height - condition_label.bounding_box[3] // 2) - 2
-    group.append(condition_label)
+    scene.append(condition_label)
 
     humidity_label = label.Label(FONT_REGULAR, text=forecast.humidity, color=COLOR_FG)
     humidity_label.x = 2
     humidity_label.y = display.height // 2 - humidity_label.bounding_box[3] // 2 - 2
-    group.append(humidity_label)
+    scene.append(humidity_label)
 
     uv_label = label.Label(FONT_REGULAR, text=forecast.uvIndex, color=COLOR_FG)
     uv_label.x = 2
     uv_label.y = display.height // 2 + uv_label.bounding_box[3] // 2 + 2
-    group.append(uv_label)
+    scene.append(uv_label)
 
     wind_label = label.Label(FONT_REGULAR, text=forecast.windSpeed, color=COLOR_FG)
     wind_label.x = display.width - wind_label.bounding_box[2] - 2
     wind_label.y = display.height // 2
-    group.append(wind_label)
+    scene.append(wind_label)
 
-    return group
+    return scene
+
+def hourly_forecast():
+    scene = displayio.Group()
+
+    walking_y = 20
+    for start, condition, temperature, chance in forecast.hours:
+        summary = f"{start.hour:02}:00  {temperature}  {condition}  {chance}"
+        hour_label = label.Label(FONT_REGULAR, text=summary, color=COLOR_FG)
+        hour_label.x = 3
+        hour_label.y = walking_y + hour_label.bounding_box[3] // 2
+        scene.append(hour_label)
+        walking_y += hour_label.bounding_box[3] + 2
+
+    return scene
 
 last_interaction = time.monotonic()
 current_scene = current_weather()
@@ -171,11 +198,21 @@ while True:
             display.brightness = 0.0
         
         time_alarm = alarm.time.TimeAlarm(monotonic_time=time.monotonic() + 1)
+        prev_pin_alarm = alarm.pin.PinAlarm(pin=board.D0, value=True, pull=True)
         wake_pin_alarm = alarm.pin.PinAlarm(pin=board.D1, value=True, pull=True)
-        alarm.light_sleep_until_alarms(time_alarm, wake_pin_alarm)
+        next_pin_alarm = alarm.pin.PinAlarm(pin=board.D2, value=True, pull=True)
+        alarm.light_sleep_until_alarms(time_alarm, prev_pin_alarm, wake_pin_alarm, next_pin_alarm)
         if alarm.wake_alarm != time_alarm:
             last_interaction = time.monotonic()
             display.brightness = 0.5
+        if alarm.wake_alarm == prev_pin_alarm:
+            root.remove(current_scene)
+            current_scene = current_weather()
+            root.append(current_scene)
+        if alarm.wake_alarm == next_pin_alarm:
+            root.remove(current_scene)
+            current_scene = hourly_forecast()
+            root.append(current_scene)
     else:
         wake_pin_alarm = alarm.pin.PinAlarm(pin=board.D1, value=True, pull=True)
         alarm.exit_and_deep_sleep_until_alarms(wake_pin_alarm)
