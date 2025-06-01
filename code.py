@@ -70,19 +70,26 @@ status_bar.x = display.width // 2 - status_bar.bounding_box[2] // 2
 status_bar.y = status_bar.bounding_box[3] // 2
 root.append(status_bar)
 
-status_bar_line_bitmap = displayio.Bitmap(display.width, 1, 1)
+status_bar_line_bitmap = displayio.Bitmap(display.width, status_bar.bounding_box[3], 1)
 status_bar_line_palette = displayio.Palette(1)
-status_bar_line_palette[0] = COLOR_FG
+status_bar_line_palette[0] = 0x4D9DFF
 
 status_bar_line_sprite = displayio.TileGrid(
     status_bar_line_bitmap,
     pixel_shader=status_bar_line_palette,
     x=0,
-    y=status_bar.bounding_box[3],
+    y=0,
 )
-root.append(status_bar_line_sprite)
+root.insert(1, status_bar_line_sprite)
 
 display.refresh()
+
+
+def hour(h: int):
+    if h > 12:
+        return h - 12
+    else:
+        return h
 
 
 def temp(t: float | None):
@@ -198,7 +205,7 @@ def hourly_forecast():
 
     walking_y = 20
     for start, condition, temperature, chance in forecast.hours:
-        summary = f"{start.hour:02}:00  {temperature}  {chance}  {condition}"
+        summary = f"{hour(start.hour):02}:00  {temperature}  {chance}  {condition}"
         hour_label = label.Label(FONT_REGULAR, text=summary, color=COLOR_FG)
         hour_label.x = 3
         hour_label.y = walking_y + hour_label.bounding_box[3] // 2
@@ -213,7 +220,7 @@ current_scene = current_weather()
 root.append(current_scene)
 while True:
     now = rtc.datetime
-    timestamp = f"{now.tm_hour:02}:{now.tm_min:02}:{now.tm_sec:02}"
+    timestamp = f"{hour(now.tm_hour):02}:{now.tm_min:02}:{now.tm_sec:02}"
     battery_badge = "+" if battery_monitor.charge_rate > 0.0 else "-"
     battery_percent = f"{int(battery_monitor.cell_percent):03}%"
     status_bar.text = f"{timestamp} | {battery_percent}{battery_badge}"
