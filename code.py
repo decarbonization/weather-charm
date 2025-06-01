@@ -79,7 +79,14 @@ def percent(p: float | None):
 def condition(c: str | None):
     if c is None:
         return "?"
-    return c
+    
+    pretty_c = ''
+    for i, l in enumerate(c):
+        if i > 0 and l.isupper():
+            pretty_c += ' '
+        pretty_c += l
+
+    return pretty_c
 
 def speed(s: float | None):
     if s is None:
