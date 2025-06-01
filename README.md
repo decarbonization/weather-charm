@@ -10,7 +10,8 @@ This project is written against [CircuitPython 9.2.7](https://circuitpython.org/
 
 ### wifi
 
-- `WIFI_NETWORKS` -- `SSID    PASS    LATITUDE  LONGITUDE`
+- `CIRCUITPY_WIFI_SSID`
+- `CIRCUITPY_WIFI_PASSWORD`
 
 ### time
 
@@ -20,4 +21,6 @@ This project is written against [CircuitPython 9.2.7](https://circuitpython.org/
 
 ### weather
 
+- `LAT`
+- `LNG`
 - `WEATHER_TOKEN`

@@ -18,23 +18,10 @@ spi = board.SPI()
 i2c = board.I2C()
 rtc = rtc.RTC()
 
-if not wifi.radio.ipv4_address or not wifi.radio.connected:
-    networks = {}
-    for network in os.getenv("WIFI_NETWORKS").split("\n"):
-        pieces = network.split("\t")
-        networks[pieces[0]] = {
-            "pass": pieces[1],
-            "lat": pieces[2],
-            "lng": pieces[3],
-        }
+ssid = os.getenv("CIRCUITPY_WIFI_SSID")
+password = os.getenv("CIRCUITPY_WIFI_PASSWORD")
+wifi.radio.connect(ssid, password)
 
-    for scanned_network in wifi.radio.start_scanning_networks():
-        network = networks.get(scanned_network.ssid)
-        if network:
-            wifi.radio.connect(scanned_network.ssid, network["pass"])
-            wifi.radio.stop_scanning_networks()
-            break
-        
 requests = adafruit_requests.Session(socketpool.SocketPool(wifi.radio), ssl.create_default_context())
 
 tz = os.getenv('TIME_ZONE')
@@ -133,7 +120,7 @@ class Forecast:
             for hour in forecast_hourly.get('hours', [])
         ]
 
-forecast = Forecast('42.478', '-70.925')
+forecast = Forecast(os.getenv('LAT'), os.getenv('LNG'))
 
 def current_weather():
     scene = displayio.Group()
@@ -176,7 +163,7 @@ def hourly_forecast():
 
     walking_y = 20
     for start, condition, temperature, chance in forecast.hours:
-        summary = f"{start.hour:02}:00  {temperature}  {condition}  {chance}"
+        summary = f"{start.hour:02}:00  {temperature}  {chance}  {condition}"
         hour_label = label.Label(FONT_REGULAR, text=summary, color=COLOR_FG)
         hour_label.x = 3
         hour_label.y = walking_y + hour_label.bounding_box[3] // 2
