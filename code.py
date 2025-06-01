@@ -180,12 +180,12 @@ while True:
     status_bar.text = f"{now.tm_hour:02}:{now.tm_min:02}:{now.tm_sec:02} | {int(battery_monitor.cell_percent):03}%"
     display.refresh()
 
-    if (time.monotonic() - last_interaction) <= 30:
+    if (time.monotonic() - last_interaction) <= 420: # 7 minutes
         if display.brightness > 0 and (time.monotonic() - last_interaction) > 10:
             display.brightness = 0.0
         
         time_alarm = alarm.time.TimeAlarm(monotonic_time=time.monotonic() + 1)
-        prev_pin_alarm = alarm.pin.PinAlarm(pin=board.D0, value=True, pull=True)
+        prev_pin_alarm = alarm.pin.PinAlarm(pin=board.D0, value=False, pull=False)
         wake_pin_alarm = alarm.pin.PinAlarm(pin=board.D1, value=True, pull=True)
         next_pin_alarm = alarm.pin.PinAlarm(pin=board.D2, value=True, pull=True)
         alarm.light_sleep_until_alarms(time_alarm, prev_pin_alarm, wake_pin_alarm, next_pin_alarm)
